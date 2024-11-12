@@ -96,6 +96,87 @@ If no active network interface is found, the following message will appear in th
 No active network interface found. Please connect to the network and try again.
 This guide will help you set up and use the tool to detect VLAN-based loops and root bridge changes. If you have any questions regarding the code or configuration, please feel free to ask for assistance.
 
+TR
+
+VLAN Bazlı Loop ve Root Bridge Değişikliği Tespit Aracı
+
+Bu proje, bir SPAN portu üzerinden gelen Layer 2 (L2) paketlerini dinleyerek VLAN bazlı loop oluşumlarını ve root bridge MAC adresi değişikliklerini tespit eden bir Python uygulamasını içerir. Kod, bağlı olan aktif ağ arayüzünü otomatik olarak algılar ve izleme işlemini bu arayüz üzerinden gerçekleştirir. Bu özellik sayesinde, kullanıcıların ağ arayüzünü manuel olarak seçmesi gerekmez, sadece izleme cihazını ağa bağlayıp kodu çalıştırmaları yeterlidir.
+
+1. Gereksinimler
+
+Yazılım Gereksinimleri
+Python 3.x: Projenin çalıştırılması için Python 3.x sürümüne ihtiyaç vardır.
+Scapy: Python paket analiz kütüphanesi olan Scapy’yi yüklemek için:
+pip install scapy
+psutil: Ağ arayüzlerini algılamak için kullanılan psutil kütüphanesini yüklemek için:
+pip install psutil
+Donanım Gereksinimleri
+Yüksek trafik akışı nedeniyle, bu aracın çalıştırılacağı cihazın aşağıdaki özelliklere sahip olması önerilir:
+
+Yüksek Performanslı CPU: Paket işleme işlemlerini hızlıca gerçekleştirmek için çok çekirdekli bir işlemci önerilir (Intel i5 veya daha iyisi).
+Yeterli Bellek (RAM): Büyük ağlarda çok sayıda paket izleneceğinden en az 8GB RAM önerilir.
+Yüksek Bant Genişliğine Sahip NIC: Trunk modunda çok sayıda VLAN’dan gelen trafiği kaldırabilmek için 1 Gbps veya daha yüksek hızda bir ağ arabirim kartı (NIC) gereklidir.
+2. Switch Konfigürasyonu
+
+Bu aracın çalışabilmesi için switch üzerinde bir SPAN portu yapılandırmanız gerekmektedir. SPAN portu, switch'teki belirli kaynak portlardan gelen trafiği izleme cihazına kopyalar. Trunk modda yapılandırıldığında, tüm VLAN'lar üzerinden gelen trafik aynı port üzerinden taşınır. Aşağıdaki adımlar Cisco switch’ler için SPAN port yapılandırma komutlarını içermektedir.
+
+SPAN Port Yapılandırması
+SPAN Kaynak Portlarını Belirleyin: İzlenecek trafik kaynaklarını seçin. Örneğin, interface Fa0/1 ve Fa0/2 portlarını izlemek istiyorsanız:
+monitor session 1 source interface Fa0/1 - 2
+SPAN Hedef Portunu Ayarlayın (Trunk Modunda): İzleme cihazının bağlı olduğu portu hedef port olarak belirleyin. Bu örnekte interface Fa0/3 izleme portu olarak kullanılacaktır:
+monitor session 1 destination interface Fa0/3
+Trunk Modunda Tüm VLAN’ları Taşıyın:
+interface Fa0/3
+switchport mode trunk
+switchport trunk allowed vlan all
+Önemli Notlar
+Sadece belirli VLAN’lardan gelen trafiği izlemek istiyorsanız switchport trunk allowed vlan komutunda yalnızca bu VLAN’ları belirtebilirsiniz. Örneğin:
+switchport trunk allowed vlan 10,20
+Yüksek trafik akışı durumunda performansı izlemek önemlidir. Ağ izleme sisteminizde yoğun paket kaybı olmaması için SPAN portuna yansıtılan trafiği sınırlamak gerekebilir.
+3. Python Kodu ve Fonksiyonları
+
+Bu projede bulunan Python kodunun işlevleri aşağıda açıklanmıştır.
+
+Fonksiyonlar
+get_active_interface()
+
+Bu fonksiyon, sistemdeki aktif (bağlantı durumu UP olan) ağ arayüzünü otomatik olarak algılar. Arayüzlerin bağlantı durumunu ve MAC adreslerini psutil kütüphanesi ile kontrol ederek ilk uygun arayüzü döndürür.
+
+detect_vlan_loop_and_root_bridge(packet)
+
+Bu fonksiyon, SPAN portundan gelen her paketi analiz eder. Paket üzerinde hem VLAN bazlı loop tespiti yapar hem de root bridge değişikliklerini kontrol eder.
+
+Loop Tespiti:
+Aynı MAC adresinden aynı VLAN’da kısa süreli aralıklarla tekrar eden paketler tespit edilir. Bu, potansiyel bir loop oluşumu olarak kabul edilir ve terminalde uyarı mesajı verir.
+TIME_THRESHOLD değeri (varsayılan 1 saniye), loop tespiti için kontrol edilen paketler arasındaki minimum zaman farkını belirler.
+Root Bridge Tespiti:
+Spanning Tree Protocol (STP) çerçevesi tespit edilirse, her VLAN için root bridge MAC adresi kontrol edilir.
+İlk defa bir root bridge adresi görüldüğünde bu adres kaydedilir. Aynı VLAN için root bridge adresi değişirse, terminalde root bridge değişikliğini belirten bir mesaj görüntülenir.
+Örnek Terminal Çıktısı
+Kod çalıştırıldığında, loop tespiti veya root bridge değişikliği olması durumunda terminal ekranında aşağıdaki gibi mesajlar görüntülenecektir:
+
+Loop detected! MAC Address: 00:1A:2B:3C:4D:5E, VLAN: 10, Interval: 0.80 seconds
+Root Bridge MAC changed for VLAN 20: 00:1A:2B:3C:4D:5E -> 00:5E:4D:3C:2B:1A
+4. Çalıştırma Talimatları
+
+Python ortamınızı hazırlayın ve gerekli kütüphaneleri yükleyin:
+pip install scapy psutil
+Python betiğini çalıştırın:
+python detect_vlan_loop.py
+Kod, bağlı olunan aktif ağ arayüzünü otomatik olarak algılayacak ve o arayüz üzerinden paketleri dinlemeye başlayacaktır. Kod çalışırken, loop veya root bridge değişiklikleri terminal ekranında görüntülenir.
+
+Hata Durumları
+Eğer aktif bir ağ arayüzü bulunamazsa, terminalde aşağıdaki mesaj görüntülenir:
+
+No active network interface found. Please connect to the network and try again.
+Bu rehber ile VLAN bazlı loop ve root bridge değişikliklerinin tespit edilmesine yönelik aracı yapılandırıp kullanmaya başlayabilirsiniz. Kod ve yapılandırma ile ilgili herhangi bir sorunuz varsa, destek almak için lütfen çekinmeyin.
+
+
+
+
+
+
+
 
 
 
