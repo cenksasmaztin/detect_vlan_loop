@@ -23,6 +23,7 @@
 #SUCH DAMAGE.
 
 created by Oxoo Networks LLC.
+Copyright (c) [2024] [Oxoo Networks LLC.]
 
 VLAN-Based Loop and Root Bridge Change Detection Tool
 
